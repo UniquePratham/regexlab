@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RegexLab - browser regex tester</title>
+<style>
+:root{
+  --bg:#0f1115;--panel:#171a21;--line:#262b36;--fg:#e7e9ee;--muted:#98a1b3;
+  --accent:#4f9dff;--ok:#3ecf8e;--bad:#ff6b6b;--mark:#ffd166;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:32px 20px 64px}
+header h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.02em}
+header p{margin:0;color:var(--muted)}
+.badge{display:inline-block;background:#1d2733;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.78rem;color:var(--muted);margin-bottom:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:18px}
+label{display:block;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+input[type=text],textarea,select{width:100%;background:#0c0e13;border:1px solid var(--line);border-radius:8px;color:var(--fg);
+  padding:10px 12px;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+textarea{min-height:120px;resize:vertical}
+input[type=text]:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.row>div{flex:1 1 220px}
+.flags{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+.flags label{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--fg);margin:0;cursor:pointer}
+.flags input{accent-color:var(--accent)}
+code{background:#0c0e13;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.9em}
+#error{color:var(--bad);min-height:1.2em;font-size:.92rem;margin-top:10px}
+#stats{color:var(--muted);font-size:.9rem;margin-top:6px}
+#output{background:#0c0e13;border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:10px;
+  white-space:pre-wrap;word-break:break-word;min-height:52px;font:14px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
+mark{background:var(--mark);color:#1b1b1b;border-radius:3px;padding:0 1px}
+h2{font-size:.95rem;margin:18px 0 8px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+ul#groups{list-style:none;margin:0;padding:0;font:13px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace}
+ul#groups li{border-bottom:1px dashed var(--line);padding:3px 0}
+ul#groups li.group{color:var(--muted);padding-left:16px;border-bottom:none}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+td,th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+td:first-child{white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);width:180px}
+footer{margin-top:26px;color:var(--muted);font-size:.88rem;border-top:1px solid var(--line);padding-top:16px}
+footer .price{color:var(--ok);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">Runs offline - no requests, no storage, no accounts</span>
+  <header>
+    <h1>RegexLab</h1>
+    <p>Write a pattern, paste your text, see every match and capture group instantly.</p>
+  </header>
+
+  <section class="panel">
+    <div class="row">
+      <div>
+        <label for="pattern">Pattern</label>
+        <input id="pattern" type="text" spellcheck="false" autocomplete="off"
+               value="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$">
+      </div>
+      <div>
+        <label for="recipe">Recipe</label>
+        <select id="recipe"><option value="">Pick a recipe...</option></select>
+      </div>
+    </div>
+    <div class="flags">
+      <label><input type="checkbox" id="f_i"> i &nbsp;ignore case</label>
+      <label><input type="checkbox" id="f_m" checked> m &nbsp;^ $ per line</label>
+      <label><input type="checkbox" id="f_s"> s &nbsp;dot matches newline</label>
+      <label><input type="checkbox" id="f_u"> u &nbsp;unicode mode</label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <label for="text">Test string</label>
+    <textarea id="text" spellcheck="false">developer@example.com
+no-at-sign.example.com
+first.last+tag@sub.domain.co
+trailingdot@example.c</textarea>
+    <div id="error" role="alert"></div>
+    <div id="stats"></div>
+    <pre id="output"></pre>
+    <h2>Capture groups</h2>
+    <ul id="groups"></ul>
+  </section>
+
+  <section class="panel">
+    <h2>Cheat sheet</h2>
+    <table id="cheat"><thead><tr><th>Token</th><th>Meaning</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <footer>
+    <p>Everything runs locally in this page. Same recipes are on the command line:
+      <code>python regexlab.py recipes</code>, <code>python regexlab.py explain PATTERN</code>.</p>
+    <p>Experiment pricing: <span class="price">$9 one-time</span> / $5/month / free + paid pro
+      (pro = saved pattern libraries, team sharing, batch files).</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+const RECIPES = [
+  {
+    id: "email",
+    title: "Validate an email address",
+    pattern: "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
+    flags: "m",
+    sample: "developer@example.com\nno-at-sign.example.com\nfirst.last+tag@sub.domain.co",
+    notes: "Pragmatic subset of RFC 5322: rejects obvious junk without the full grammar."
+  },
+  {
+    id: "no-word",
+    title: "Line that does NOT contain a word",
+    pattern: "^(?!.*\\bword\\b).*$",
+    flags: "m",
+    sample: "this line is fine\nthis line has a word inside\nword at the start",
+    notes: "Anchored negative lookahead. Tick m so ^ and $ work per line. Replace word with your term."
+  },
+  {
+    id: "digits",
+    title: "Digits only",
+    pattern: "^\\d+$",
+    flags: "m",
+    sample: "12345\n12a45\n007",
+    notes: "Use ^ and $ so the whole string must match, not just a part of it."
+  },
+  {
+    id: "date-iso",
+    title: "ISO date YYYY-MM-DD",
+    pattern: "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+    flags: "m",
+    sample: "2026-09-25\n2026-13-01\n25/09/2026",
+    notes: "Checks shape and calendar ranges, not leap years."
+  },
+  {
+    id: "url",
+    title: "HTTP(S) URL",
+    pattern: "^https?://[A-Za-z0-9.-]+(:\\d{1,5})?(/[^?\\s]*)?(\\?[^#\\s]*)?(#\\S*)?$",
+    flags: "m",
+    sample: "https://example.com/path?q=1#top\nftp://example.com\nhttps://",
+    notes: "Practical shape check for forms; not a full RFC 3986 validator."
+  },
+  {
+    id: "duplicate-word",
+    title: "Repeated word (the the)",
+    pattern: "\\b(\\w+)\\s+\\1\\b",
+    sample: "this is is the the end\nthis is the end",
+    notes: "Classic typo detector. Tick i to also catch The the."
+  },
+  {
+    id: "ipv4",
+    title: "IPv4 address",
+    pattern: "\\b((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\b",
+    sample: "192.168.0.1\n999.1.1.1\n10.0.0.256",
+    notes: "Each octet is restricted to 0-255."
+  },
+  {
+    id: "extract-groups",
+    title: "Capture key = value fields",
+    pattern: "(?<key>[A-Za-z_][\\w]*)\\s*=\\s*(?<value>\"[^\"]*\"|\\S+)",
+    sample: "name = \"Ada\"\ncount=42\nbareword",
+    notes: "Named groups: read them from match.groups in JavaScript."
+  },
+  {
+    id: "quoted-string",
+    title: "Quoted string",
+    pattern: "\"(?:\\\\.|[^\"\\\\])*\"",
+    sample: "\"say \\\"hi\\\" now\"\n\"unterminated",
+    notes: "Handles escaped quotes inside the string."
+  }
+];
+
+const CHEAT = [
+  [".", "Any character except newline"],
+  ["\\d / \\D", "Digit / not a digit"],
+  ["\\w / \\W", "Word character [A-Za-z0-9_] / not"],
+  ["\\s / \\S", "Whitespace / not whitespace"],
+  ["^ / $", "Start / end of string (per line with the m flag)"],
+  ["\\b / \\B", "Word boundary / not a word boundary"],
+  ["[abc] / [^abc]", "Character class / negated class"],
+  ["*", "Zero or more"],
+  ["+", "One or more"],
+  ["?", "Zero or one"],
+  ["{n}", "{n,} or {n,m}", "Exactly n, at least n, or between n and m"],
+  ["*? +? ?? {n,m}?", "Lazy (non-greedy) quantifiers"],
+  ["|", "Alternation - either side"],
+  ["(...)", "Capturing group"],
+  ["(?:...)", "Non-capturing group"],
+  ["(?<name>...)", "Named group (JavaScript)"],
+  ["(?=...) (?!...)", "Positive / negative lookahead"],
+  ["(?<=...) (?<!...)", "Positive / negative lookbehind"],
+  ["\\1 ... \\9", "Backreference to a captured group"],
+  ["(?:)", "Grouping only, no capture"]
+];
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function escapeHtml(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function currentFlags() {
+    var flags = "g";
+    if ($("f_i").checked) flags += "i";
+    if ($("f_m").checked) flags += "m";
+    if ($("f_s").checked) flags += "s";
+    if ($("f_u").checked) flags += "u";
+    return flags;
+  }
+
+  function collect(text, regex) {
+    var found = [];
+    var match;
+    var guard = 0;
+    regex.lastIndex = 0;
+    while ((match = regex.exec(text)) !== null) {
+      found.push(match);
+      if (match[0].length === 0) {
+        regex.lastIndex += 1;
+      }
+      guard += 1;
+      if (guard > 10000 || regex.lastIndex > text.length) break;
+    }
+    return found;
+  }
+
+  function renderGroups(found) {
+    var box = $("groups");
+    box.innerHTML = "";
+    if (!found.length) {
+      var none = document.createElement("li");
+      none.textContent = "No capture groups - no matches yet.";
+      box.appendChild(none);
+      return;
+    }
+    found.forEach(function (m, index) {
+      var head = document.createElement("li");
+      head.textContent = "match " + (index + 1) + " " + JSON.stringify(m[0]) +
+        " at [" + m.index + ":" + (m.index + m[0].length) + "]";
+      box.appendChild(head);
+      for (var g = 1; g < m.length; g += 1) {
+        var item = document.createElement("li");
+        item.className = "group";
+        item.textContent = "group " + g + " = " + JSON.stringify(m[g]);
+        box.appendChild(item);
+      }
+      if (m.groups) {
+        Object.keys(m.groups).forEach(function (name) {
+          var named = document.createElement("li");
+          named.className = "group";
+          named.textContent = "group " + name + " = " + JSON.stringify(m.groups[name]);
+          box.appendChild(named);
+        });
+      }
+    });
+  }
+
+  function run() {
+    var pattern = $("pattern").value;
+    var text = $("text").value;
+    var errorBox = $("error");
+    var stats = $("stats");
+    var output = $("output");
+
+    errorBox.textContent = "";
+    stats.textContent = "";
+    output.textContent = "";
+
+    if (!pattern) {
+      errorBox.textContent = "Enter a pattern to test.";
+      renderGroups([]);
+      return;
+    }
+
+    var regex;
+    try {
+      regex = new RegExp(pattern, currentFlags());
+    } catch (exc) {
+      errorBox.textContent = "Invalid pattern: " + exc.message;
+      renderGroups([]);
+      return;
+    }
+
+    var found = collect(text, regex);
+
+    var html = "";
+    var cursor = 0;
+    found.forEach(function (m) {
+      html += escapeHtml(text.slice(cursor, m.index));
+      html += "<mark>" + escapeHtml(m[0]) + "</mark>";
+      cursor = m.index + m[0].length;
+    });
+    html += escapeHtml(text.slice(cursor));
+    output.innerHTML = html;
+
+    stats.textContent = found.length === 1
+      ? "1 match, first at [" + found[0].index + ":" + (found[0].index + found[0][0].length) + "]"
+      : found.length + " matches";
+
+    renderGroups(found);
+  }
+
+  function setFlags(spec) {
+    $("f_i").checked = spec.indexOf("i") !== -1;
+    $("f_m").checked = spec.indexOf("m") !== -1;
+    $("f_s").checked = spec.indexOf("s") !== -1;
+    $("f_u").checked = spec.indexOf("u") !== -1;
+  }
+
+  function applyRecipe(index) {
+    var recipe = RECIPES[index];
+    if (!recipe) return;
+    $("pattern").value = recipe.pattern;
+    $("text").value = recipe.sample;
+    setFlags(recipe.flags || "");
+    run();
+  }
+
+  function buildRecipeList() {
+    var select = $("recipe");
+    RECIPES.forEach(function (recipe, index) {
+      var option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = recipe.title;
+      select.appendChild(option);
+    });
+    select.addEventListener("change", function () {
+      if (select.value === "") return;
+      applyRecipe(Number(select.value));
+    });
+  }
+
+  function buildCheatSheet() {
+    var body = $("cheat").getElementsByTagName("tbody")[0];
+    CHEAT.forEach(function (row) {
+      var tr = document.createElement("tr");
+      var token = document.createElement("td");
+      token.textContent = row[0];
+      var meaning = document.createElement("td");
+      meaning.textContent = row.length > 2 ? row[1] + " - " + row[2] : row[1];
+      tr.appendChild(token);
+      tr.appendChild(meaning);
+      body.appendChild(tr);
+    });
+  }
+
+  function wire() {
+    ["pattern", "text"].forEach(function (id) {
+      $(id).addEventListener("input", run);
+    });
+    ["f_i", "f_m", "f_s", "f_u"].forEach(function (id) {
+      $(id).addEventListener("change", run);
+    });
+  }
+
+  buildRecipeList();
+  buildCheatSheet();
+  wire();
+  run();
+}());
+</script>
+</body>
+</html>
