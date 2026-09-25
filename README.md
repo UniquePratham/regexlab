@@ -178,12 +178,11 @@ The suite also enforces the project constraints: only standard-library imports i
 - The browser tool intentionally uses JavaScript's `RegExp`, so patterns behave
   the way they will in front-end code.
 
-## Pricing (experiment)
+## Pricing
 
-Free core (everything above). Candidate paid tiers for validation:
-`$9 one-time`, `$5/month`, or `free + paid pro` (pro = saved pattern libraries,
-team sharing, batch files).
+`$9 one-time` — buy once, run locally, no subscription. Checkout activates on the
+[landing page](LANDING.html) once payments are connected; the browser tool stays free.
 
 ## License
 
-Use freely within this experiment.
+No `LICENSE` file is included yet; licensing terms are decided by the repository owner.
